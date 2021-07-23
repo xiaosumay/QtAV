@@ -91,9 +91,11 @@ AVPlayer::AVPlayer(QObject *parent) :
     //direct connection can not sure slot order?
     connect(d->read_thread, SIGNAL(finished()), this, SLOT(stopFromDemuxerThread()), Qt::DirectConnection);
     connect(d->read_thread, SIGNAL(requestClockPause(bool)), masterClock(), SLOT(pause(bool)), Qt::DirectConnection);
+    connect(d->read_thread, SIGNAL(mediaEndActionPauseTriggered()), this, SLOT(onMediaEndActionPauseTriggered()));
     connect(d->read_thread, SIGNAL(mediaStatusChanged(QtAV::MediaStatus)), this, SLOT(updateMediaStatus(QtAV::MediaStatus)));
     connect(d->read_thread, SIGNAL(bufferProgressChanged(qreal)), this, SIGNAL(bufferProgressChanged(qreal)));
     connect(d->read_thread, SIGNAL(seekFinished(qint64)), this, SLOT(onSeekFinished(qint64)), Qt::DirectConnection);
+    connect(d->read_thread, SIGNAL(stepFinished()), this, SLOT(onStepFinished()), Qt::DirectConnection);
     connect(d->read_thread, SIGNAL(internalSubtitlePacketRead(int, QtAV::Packet)), this, SIGNAL(internalSubtitlePacketRead(int, QtAV::Packet)), Qt::DirectConnection);
     d->vcapture = new VideoCapture(this);
 }
@@ -1403,6 +1405,16 @@ void AVPlayer::updateMediaStatus(QtAV::MediaStatus status)
     Q_EMIT mediaStatusChanged(d->status);
 }
 
+void AVPlayer::onMediaEndActionPauseTriggered()
+{
+    if(d->state == PausedState)
+        return;
+
+    d->state = PausedState;
+    Q_EMIT stateChanged(d->state);
+    Q_EMIT paused(true);
+}
+
 void AVPlayer::onSeekFinished(qint64 value)
 {
     d->seeking = false;
@@ -1412,6 +1424,11 @@ void AVPlayer::onSeekFinished(qint64 value)
         Q_EMIT positionChanged(value - absoluteMediaStartPosition());
     else
         Q_EMIT positionChanged(value);
+}
+
+void AVPlayer::onStepFinished()
+{
+    Q_EMIT stepFinished();
 }
 
 void AVPlayer::tryClearVideoRenderers()
@@ -1514,6 +1531,7 @@ void AVPlayer::timerEvent(QTimerEvent *te)
     if (te->timerId() == d->timer_id) {
         // killTimer() should be in the same thread as object. kill here?
         if (isPaused()) {
+            d->clock->pause(true);
             //return; //ensure positionChanged emitted for stepForward()
         }
         // active only when playing

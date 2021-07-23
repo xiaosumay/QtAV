@@ -576,6 +576,7 @@ Q_SIGNALS:
      * \param position The video or audio timestamp when seek is finished
      */
     void seekFinished(qint64 position);
+    void stepFinished();
     void positionChanged(qint64 position);
     void interruptTimeoutChanged();
     void interruptOnTimeoutChanged();
@@ -615,7 +616,9 @@ private Q_SLOTS:
     void stopNotifyTimer();
     void onStarted();
     void updateMediaStatus(QtAV::MediaStatus status);
+    void onMediaEndActionPauseTriggered();
     void onSeekFinished(qint64 value);
+    void onStepFinished();
     void tryClearVideoRenderers();
     void seekChapter(int incr);
 protected:
